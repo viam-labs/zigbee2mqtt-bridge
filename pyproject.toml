@@ -1,0 +1,35 @@
+[project]
+name = "zigbee2mqtt-bridge-module"
+version = "0.0.0"
+description = "Bridge zigbee2mqtt device actions into a Viam events sensor."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Joseph Borodach" }]
+dependencies = [
+    "viam-sdk>=0.30",
+    "paho-mqtt>=2.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.16,<0.17",
+    "black>=26,<27",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]

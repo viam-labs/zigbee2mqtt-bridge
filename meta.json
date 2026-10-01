@@ -1,12 +1,12 @@
 {
-    "module_id": "joseph:zigbee2mqtt-bridge",
+    "module_id": "viam-labs:zigbee2mqtt-bridge",
     "visibility": "public",
-    "url": "https://github.com/JosephBorodach/zigbee2mqtt-bridge",
+    "url": "https://github.com/viam-labs/zigbee2mqtt-bridge",
     "description": "Bridges zigbee2mqtt device actions (button presses) into a Viam events sensor via push_event do_commands.",
     "models": [
         {
             "api": "rdk:component:sensor",
-            "model": "joseph:zigbee2mqtt:bridge",
+            "model": "viam-labs:zigbee2mqtt:bridge",
             "markdown_link": "README.md#bridge"
         }
     ],

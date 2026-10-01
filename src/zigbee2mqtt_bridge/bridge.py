@@ -41,6 +41,8 @@ class Bridge(Sensor):
         self._message_count: int = 0
         self._last_event: dict | None = None
         self._connected: bool = False
+        self._actions: list[dict] = []
+        self._targets: dict[str, Any] = {}
 
     @classmethod
     def new(
@@ -67,7 +69,28 @@ class Bridge(Sensor):
         name_map = attrs.get("friendly_name_map", {})
         if not isinstance(name_map, dict):
             raise ValueError("`friendly_name_map` must be an object if set")
-        return [events], []
+
+        deps = [events]
+        actions = attrs.get("actions", [])
+        if actions:
+            if not isinstance(actions, list):
+                raise ValueError("`actions` must be a list if set")
+            for i, a in enumerate(actions):
+                if not isinstance(a, dict):
+                    raise ValueError(f"`actions[{i}]` must be an object")
+                when = a.get("when")
+                do = a.get("do")
+                if not isinstance(when, dict) or not isinstance(do, dict):
+                    raise ValueError(f"`actions[{i}]` requires `when` + `do` objects")
+                target = do.get("component")
+                command = do.get("command")
+                if not isinstance(target, str) or not target:
+                    raise ValueError(f"`actions[{i}].do.component` is required")
+                if not isinstance(command, dict):
+                    raise ValueError(f"`actions[{i}].do.command` must be an object")
+                if target not in deps:
+                    deps.append(target)
+        return deps, []
 
     def reconfigure(
         self,
@@ -89,6 +112,20 @@ class Bridge(Sensor):
             LOGGER.warning(
                 "events_sensor %r not found among dependencies; events will be dropped",
                 self._events_sensor_name,
+            )
+
+        self._actions = list(attrs.get("actions") or [])
+        wanted_targets = {
+            a["do"]["component"] for a in self._actions if a.get("do", {}).get("component")
+        }
+        self._targets = {}
+        for name, resource in dependencies.items():
+            if name.name in wanted_targets:
+                self._targets[name.name] = resource
+        for name in wanted_targets - set(self._targets):
+            LOGGER.warning(
+                "action target %r not among dependencies; those actions will be skipped",
+                name,
             )
 
         try:
@@ -173,12 +210,30 @@ class Bridge(Sensor):
         self._last_event = event
         self._message_count += 1
 
-        if self._events_sensor is None or self._main_loop is None:
+        if self._main_loop is None:
             return
-        asyncio.run_coroutine_threadsafe(
-            self._push_event(event),
-            self._main_loop,
-        )
+        if self._events_sensor is not None:
+            asyncio.run_coroutine_threadsafe(self._push_event(event), self._main_loop)
+        for cfg in self._matching_actions(source, action):
+            target = self._targets.get(cfg["do"]["component"])
+            if target is None:
+                continue
+            asyncio.run_coroutine_threadsafe(
+                self._dispatch(target, cfg["do"]["command"]),
+                self._main_loop,
+            )
+
+    def _matching_actions(self, source: str, action: str) -> list[dict]:
+        """Return every configured action whose `when` matches this event."""
+        out = []
+        for cfg in self._actions:
+            when = cfg.get("when") or {}
+            if "source" in when and when["source"] != source:
+                continue
+            if "action" in when and when["action"] != action:
+                continue
+            out.append(cfg)
+        return out
 
     async def _push_event(self, event: dict) -> None:
         assert self._events_sensor is not None
@@ -186,6 +241,12 @@ class Bridge(Sensor):
             await self._events_sensor.do_command({"command": "push_event", "event": event})
         except Exception as e:
             LOGGER.warning("push_event failed: %s", e)
+
+    async def _dispatch(self, target: Any, command: Mapping[str, Any]) -> None:
+        try:
+            await target.do_command(dict(command))
+        except Exception as e:
+            LOGGER.warning("action dispatch failed on %r: %s", getattr(target, "name", "?"), e)
 
     # -- Sensor API ----------------------------------------------------
 

@@ -31,6 +31,29 @@ Model: `joseph:zigbee2mqtt:bridge`, API: `rdk:component:sensor`.
 | `topic_prefix` | no | `zigbee2mqtt` | Topic namespace. Subscribes to `<prefix>/+`. |
 | `friendly_name_map` | no | `{}` | IEEE → nicer source label (set `source` on pushed events). Falls back to the raw topic segment. |
 | `mqtt_username` / `mqtt_password` | no | — | For brokers that require auth. |
+| `actions` | no | `[]` | List of `{when, do}` dispatch rules — see below. |
+
+### Dispatching do_commands on button presses
+
+Beyond pushing to the events sensor, the bridge can call `do_command` on any other configured component when a specific event fires. Example — press `button-a` to decrement an inventory item:
+
+```json
+{
+  "actions": [
+    {
+      "when": {"source": "button-a", "action": "single"},
+      "do": {
+        "component": "inventory",
+        "command": {"command": "decrement", "id": "b06bcf436cff", "by": 1}
+      }
+    }
+  ]
+}
+```
+
+Each target `component` listed under `do` is automatically added as a required dependency, so viam-server resolves startup order correctly. Add the same component name under `depends_on` is not necessary.
+
+`when` matches by `source` and/or `action`. Omitting a key matches any value — e.g. `{"source": "button-a"}` fires for every action on button-a.
 
 ### Event shape
 

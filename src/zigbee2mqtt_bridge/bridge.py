@@ -28,7 +28,7 @@ DEFAULT_TOPIC_PREFIX = "zigbee2mqtt"
 
 
 class Bridge(Sensor):
-    MODEL: ClassVar[Model] = Model(ModelFamily("viam-labs", "zigbee2mqtt"), "bridge")
+    MODEL: ClassVar[Model] = Model(ModelFamily("viam", "zigbee2mqtt"), "bridge")
 
     def __init__(self, name: str) -> None:
         super().__init__(name)

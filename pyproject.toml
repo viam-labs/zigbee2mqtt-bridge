@@ -7,7 +7,7 @@ requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Joseph Borodach" }]
 dependencies = [
-    "viam-sdk>=0.30",
+    "viam-sdk>=0.84.0",
     "paho-mqtt>=2.1",
 ]
 

@@ -7,14 +7,13 @@ a configured events sensor.
 
 import asyncio
 import json
-import logging
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any, ClassVar, Self
-from urllib.parse import urlparse
 
 import paho.mqtt.client as mqtt
 from viam.components.sensor import Sensor
+from viam.logging import getLogger
 from viam.proto.app.robot import ComponentConfig
 from viam.proto.common import ResourceName
 from viam.resource.base import ResourceBase
@@ -22,9 +21,15 @@ from viam.resource.registry import Registry, ResourceCreatorRegistration
 from viam.resource.types import Model, ModelFamily
 from viam.utils import struct_to_dict
 
-LOGGER = logging.getLogger(__name__)
+from .mqtt_client import (
+    DEFAULT_TOPIC_PREFIX,
+    start_client,
+    stop_client,
+    topic_prefix,
+    validate_connection_attrs,
+)
 
-DEFAULT_TOPIC_PREFIX = "zigbee2mqtt"
+LOGGER = getLogger(__name__)
 
 
 class Bridge(Sensor):
@@ -57,15 +62,10 @@ class Bridge(Sensor):
     @classmethod
     def validate(cls, config: ComponentConfig) -> tuple[Sequence[str], Sequence[str]]:
         attrs = struct_to_dict(config.attributes)
-        server = attrs.get("mqtt_server")
-        if not isinstance(server, str) or not server:
-            raise ValueError("`mqtt_server` is required (e.g. mqtt://localhost)")
+        validate_connection_attrs(attrs)
         events = attrs.get("events_sensor")
         if not isinstance(events, str) or not events:
             raise ValueError("`events_sensor` is required")
-        prefix = attrs.get("topic_prefix", DEFAULT_TOPIC_PREFIX)
-        if not isinstance(prefix, str) or not prefix:
-            raise ValueError("`topic_prefix` must be a non-empty string if set")
         name_map = attrs.get("friendly_name_map", {})
         if not isinstance(name_map, dict):
             raise ValueError("`friendly_name_map` must be an object if set")
@@ -98,7 +98,7 @@ class Bridge(Sensor):
         dependencies: Mapping[ResourceName, ResourceBase],
     ) -> None:
         attrs = struct_to_dict(config.attributes)
-        self._topic_prefix = str(attrs.get("topic_prefix", DEFAULT_TOPIC_PREFIX)).rstrip("/")
+        self._topic_prefix = topic_prefix(attrs)
         self._friendly_name_map = {
             str(k): str(v) for k, v in (attrs.get("friendly_name_map") or {}).items()
         }
@@ -133,47 +133,30 @@ class Bridge(Sensor):
         except RuntimeError:
             self._main_loop = None
 
-        if self._client is not None:
-            try:
-                self._client.loop_stop()
-                self._client.disconnect()
-            except Exception:
-                pass
-
-        parsed = urlparse(str(attrs["mqtt_server"]))
-        host = parsed.hostname or "localhost"
-        port = parsed.port or 1883
-        username = attrs.get("mqtt_username")
-        password = attrs.get("mqtt_password")
-
-        self._client = mqtt.Client()
-        if isinstance(username, str) and username:
-            self._client.username_pw_set(username, password if isinstance(password, str) else None)
-        self._client.on_connect = self._on_connect
-        self._client.on_disconnect = self._on_disconnect
-        self._client.on_message = self._on_message
-
-        try:
-            self._client.connect_async(host, port, keepalive=60)
-            self._client.loop_start()
-        except Exception as e:
-            LOGGER.error("MQTT connect failed: %s", e)
+        stop_client(self._client)
+        self._connected = False
+        self._client = start_client(
+            attrs,
+            on_connect=self._on_connect,
+            on_disconnect=self._on_disconnect,
+            on_message=self._on_message,
+        )
 
     # -- MQTT callbacks (run on paho's background thread) --------------
 
-    def _on_connect(self, client, userdata, flags, rc, properties=None) -> None:
-        if rc == 0:
+    def _on_connect(self, client, userdata, flags, reason_code, properties) -> None:
+        if not reason_code.is_failure:
             self._connected = True
             topic = f"{self._topic_prefix}/+"
             client.subscribe(topic)
             LOGGER.info("MQTT connected; subscribed to %r", topic)
         else:
             self._connected = False
-            LOGGER.error("MQTT connect failed with rc=%s", rc)
+            LOGGER.error("MQTT connect failed: %s", reason_code)
 
-    def _on_disconnect(self, client, userdata, rc, properties=None, reason=None) -> None:
+    def _on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties) -> None:
         self._connected = False
-        LOGGER.warning("MQTT disconnected (rc=%s)", rc)
+        LOGGER.warning("MQTT disconnected: %s", reason_code)
 
     def _on_message(self, client, userdata, msg) -> None:
         topic = msg.topic
@@ -262,13 +245,7 @@ class Bridge(Sensor):
         }
 
     async def close(self) -> None:
-        if self._client is None:
-            return
-        try:
-            self._client.loop_stop()
-            self._client.disconnect()
-        except Exception:
-            pass
+        stop_client(self._client)
         self._client = None
 
 

@@ -2,7 +2,7 @@
     "module_id": "viam:zigbee2mqtt-bridge",
     "visibility": "public",
     "url": "https://github.com/viam-labs/zigbee2mqtt-bridge",
-    "description": "Bridges zigbee2mqtt devices into Viam: button actions into an events sensor, and on/off devices (smart plugs, relays) as switches.",
+    "description": "Bridges zigbee2mqtt devices into Viam: button actions into an events sensor, on/off devices (smart plugs, relays) as switches, and tunable-white bulbs as generics with scheduled in-lamp ramps.",
     "models": [
         {
             "api": "rdk:component:sensor",
@@ -13,6 +13,11 @@
             "api": "rdk:component:switch",
             "model": "viam:zigbee2mqtt:switch",
             "markdown_link": "README.md#switch"
+        },
+        {
+            "api": "rdk:component:generic",
+            "model": "viam:zigbee2mqtt:light",
+            "markdown_link": "README.md#light"
         }
     ],
     "entrypoint": "run.sh"

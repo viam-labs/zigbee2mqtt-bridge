@@ -139,9 +139,7 @@ def _normalize_schedule(raw: dict) -> dict:
         "target_brightness_pct": _check_pct(
             "target_brightness_pct", raw.get("target_brightness_pct")
         ),
-        "target_color_temp_k": _check_kelvin(
-            "target_color_temp_k", raw.get("target_color_temp_k")
-        ),
+        "target_color_temp_k": _check_kelvin("target_color_temp_k", raw.get("target_color_temp_k")),
         "enabled": bool(raw.get("enabled", True)),
         "last_processed_at": raw.get("last_processed_at"),
         "last_fired_at": raw.get("last_fired_at"),
@@ -555,7 +553,9 @@ class Light(Generic):
         if age_min > CATCH_UP_WINDOW_MIN:
             LOGGER.warning(
                 "missed ramp for schedule %s at %s (%.0f min past catch-up window)",
-                schedule.get("id"), today_fire.isoformat(), age_min - CATCH_UP_WINDOW_MIN,
+                schedule.get("id"),
+                today_fire.isoformat(),
+                age_min - CATCH_UP_WINDOW_MIN,
             )
             schedule["last_processed_at"] = today_fire.astimezone(UTC).isoformat()
             return True
@@ -611,9 +611,7 @@ class Light(Generic):
             raise ValueError("`id` is required")
         async with self._state_lock:
             before = len(self._state["schedules"])
-            self._state["schedules"] = [
-                s for s in self._state["schedules"] if s.get("id") != sid
-            ]
+            self._state["schedules"] = [s for s in self._state["schedules"] if s.get("id") != sid]
             if len(self._state["schedules"]) == before:
                 raise ValueError(f"no schedule with id={sid!r}")
             self._save_state()

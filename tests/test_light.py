@@ -268,7 +268,11 @@ async def test_health_zigbee_unreachable_after_timeout(make_light):
 
 def test_health_messages_cover_all_states():
     assert set(HEALTH_MESSAGES) == {
-        "ok", "lamp_power_off", "zigbee_unreachable", "mqtt_down", "module_error",
+        "ok",
+        "lamp_power_off",
+        "zigbee_unreachable",
+        "mqtt_down",
+        "module_error",
     }
 
 
@@ -304,10 +308,12 @@ async def test_modify_schedule(make_light):
     lamp, _, _ = make_light()
     add = await lamp.do_command({"command": "add_schedule", "schedule": _ramp()})
     sid = add["schedule"]["id"]
-    resp = await lamp.do_command({
-        "command": "modify_schedule",
-        "schedule": {"id": sid, "target_brightness_pct": 100.0, "duration_s": 600},
-    })
+    resp = await lamp.do_command(
+        {
+            "command": "modify_schedule",
+            "schedule": {"id": sid, "target_brightness_pct": 100.0, "duration_s": 600},
+        }
+    )
     assert resp["schedule"]["target_brightness_pct"] == 100.0
     assert resp["schedule"]["duration_s"] == 600
     assert resp["schedule"]["start_brightness_pct"] == 1.0
@@ -342,12 +348,23 @@ async def test_reseed_from_config_when_state_absent(make_light, tmp_path):
 
 async def test_persisted_state_wins_over_config_seed(make_light, tmp_path):
     path = tmp_path / "persisted.json"
-    path.write_text(json.dumps({
-        "schema_version": 1,
-        "schedules": [_ramp(time="07:00") | {"id": "abc12345", "enabled": True,
-                                             "last_processed_at": None, "last_fired_at": None,
-                                             "name": "Ramp 07:00"}],
-    }))
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "schedules": [
+                    _ramp(time="07:00")
+                    | {
+                        "id": "abc12345",
+                        "enabled": True,
+                        "last_processed_at": None,
+                        "last_fired_at": None,
+                        "name": "Ramp 07:00",
+                    }
+                ],
+            }
+        )
+    )
     lamp, _, _ = make_light(state_path=str(path), schedules=[_ramp(time="06:00")])
     status = await lamp.do_command({"command": "status"})
     assert status["schedules"][0]["time"] == "07:00"
@@ -355,8 +372,16 @@ async def test_persisted_state_wins_over_config_seed(make_light, tmp_path):
 
 async def test_run_ramp_snaps_start_then_ramps_target(make_light):
     lamp, client, _ = make_light()
-    await lamp._run_ramp(_ramp() | {"id": "x", "name": "n", "enabled": True,
-                                     "last_processed_at": None, "last_fired_at": None})
+    await lamp._run_ramp(
+        _ramp()
+        | {
+            "id": "x",
+            "name": "n",
+            "enabled": True,
+            "last_processed_at": None,
+            "last_fired_at": None,
+        }
+    )
     sets = [b for t, b in client.published if t == f"{STATE_TOPIC}/set"]
     assert len(sets) == 2
     assert sets[0]["transition"] == 0.0

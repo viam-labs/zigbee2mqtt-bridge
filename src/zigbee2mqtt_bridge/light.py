@@ -270,8 +270,6 @@ class Light(Generic):
             on_message=self._on_message,
         )
 
-    # -- state persistence ---------------------------------------------
-
     def _load_and_seed_state(self, attrs: dict) -> dict:
         loaded = self._load_state()
         state = _empty_state()
@@ -324,8 +322,6 @@ class Light(Generic):
             if s.get("id") == sid:
                 return s
         return None
-
-    # -- MQTT callbacks (paho thread) ----------------------------------
 
     def _on_connect(self, client, userdata, flags, reason_code, properties) -> None:
         if reason_code.is_failure:
@@ -381,8 +377,6 @@ class Light(Generic):
             return
         self._main_loop.call_soon_threadsafe(self._record_state_echo, payload)
 
-    # -- event-loop state updates --------------------------------------
-
     def _record_state_echo(self, payload: dict) -> None:
         self._last_state = payload
         self._last_state_at = datetime.now(UTC).isoformat()
@@ -395,8 +389,6 @@ class Light(Generic):
 
     def _record_availability(self, avail: str) -> None:
         self._availability = avail
-
-    # -- publish-and-wait ----------------------------------------------
 
     async def _publish_and_wait(self, topic: str, payload: dict) -> None:
         if self._client is None or not self._connected:
@@ -422,8 +414,6 @@ class Light(Generic):
         finally:
             fut.cancel()
             self._waiters = [f for f in self._waiters if f is not fut]
-
-    # -- light operations ----------------------------------------------
 
     async def _set(
         self,
@@ -491,8 +481,6 @@ class Light(Generic):
             "readings": self._readings(),
             "schedules": list((self._state or {}).get("schedules", [])),
         }
-
-    # -- scheduled ramps -----------------------------------------------
 
     async def _run_ramp(self, schedule: dict) -> None:
         """Snap to the start state, then ramp to the target.
@@ -581,8 +569,6 @@ class Light(Generic):
         schedule["last_processed_at"] = fired_at_iso
         return True
 
-    # -- schedule CRUD --------------------------------------------------
-
     async def _add_schedule(self, payload: Any) -> dict:
         assert self._state is not None
         assert self._state_lock is not None
@@ -647,8 +633,6 @@ class Light(Generic):
             live["enabled"] = enabled
             self._save_state()
         return {"ok": True, "id": sid, "enabled": enabled}
-
-    # -- Generic API ----------------------------------------------------
 
     async def do_command(
         self,

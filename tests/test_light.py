@@ -105,9 +105,6 @@ async def settle() -> None:
     await asyncio.sleep(0)
 
 
-# -- validate -----------------------------------------------------------
-
-
 def test_validate_returns_tuple_form():
     assert Light.validate(make_config()) == ([], [])
 
@@ -139,9 +136,6 @@ def test_validate_rejects_malformed_seed_schedule():
     }
     with pytest.raises(ValueError, match="duration_s"):
         Light.validate(make_config(schedules=[bad]))
-
-
-# -- set / publish ------------------------------------------------------
 
 
 async def test_set_brightness_publishes_zb_integer_and_waits(make_light):
@@ -198,9 +192,6 @@ async def test_set_fails_fast_when_disconnected(make_light):
     assert client.published == []
 
 
-# -- gamma brightness mapping -------------------------------------------
-
-
 def test_brightness_mapping_is_nonlinear():
     assert light_mod._pct_to_zb_brightness(0) == 0
     assert light_mod._pct_to_zb_brightness(100) == 254
@@ -215,9 +206,6 @@ def test_brightness_mapping_is_nonlinear():
         prev = v
 
 
-# -- on-connect behavior ------------------------------------------------
-
-
 async def test_connect_requests_state_and_sets_power_on_behavior(make_light):
     lamp, client, _ = make_light(connect=False, power_on_behavior="previous")
     client.connect()
@@ -225,9 +213,6 @@ async def test_connect_requests_state_and_sets_power_on_behavior(make_light):
     assert f"{STATE_TOPIC}/get" in topics
     por_sets = [b for t, b in client.published if t == f"{STATE_TOPIC}/set"]
     assert any(b.get("power_on_behavior") == "previous" for b in por_sets)
-
-
-# -- availability parsing -----------------------------------------------
 
 
 async def test_availability_text_payload(make_light):
@@ -245,9 +230,6 @@ async def test_availability_json_payload(make_light):
     client.report({"state": "offline"}, topic=AVAIL_TOPIC)
     await settle()
     assert lamp._availability == "offline"
-
-
-# -- status / health ----------------------------------------------------
 
 
 async def test_health_ok_after_successful_set(make_light):
@@ -288,9 +270,6 @@ def test_health_messages_cover_all_states():
     assert set(HEALTH_MESSAGES) == {
         "ok", "lamp_power_off", "zigbee_unreachable", "mqtt_down", "module_error",
     }
-
-
-# -- schedule CRUD ------------------------------------------------------
 
 
 def _ramp(**overrides) -> dict:
@@ -374,9 +353,6 @@ async def test_persisted_state_wins_over_config_seed(make_light, tmp_path):
     assert status["schedules"][0]["time"] == "07:00"
 
 
-# -- ramp mechanics -----------------------------------------------------
-
-
 async def test_run_ramp_snaps_start_then_ramps_target(make_light):
     lamp, client, _ = make_light()
     await lamp._run_ramp(_ramp() | {"id": "x", "name": "n", "enabled": True,
@@ -388,9 +364,6 @@ async def test_run_ramp_snaps_start_then_ramps_target(make_light):
     assert sets[0]["brightness"] == light_mod._pct_to_zb_brightness(1.0)
     assert sets[1]["transition"] == 1800.0
     assert sets[1]["brightness"] == light_mod._pct_to_zb_brightness(80.0)
-
-
-# -- misc ---------------------------------------------------------------
 
 
 async def test_unknown_command(make_light):
